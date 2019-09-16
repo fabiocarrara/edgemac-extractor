@@ -1,0 +1,37 @@
+diff --git a/dagnn_caffe_deploy.m b/dagnn_caffe_deploy.m
+index d3204a4..885896c 100644
+--- a/dagnn_caffe_deploy.m
++++ b/dagnn_caffe_deploy.m
+@@ -310,6 +310,23 @@ for idx = 1:numel(net.layers)
+       fprintf(fid, '    dropout_ratio: %d\n', net.layers{idx}.block.rate);
+       fprintf(fid, '  }\n');
+ 
++    case 'EdgeFilter'
++      info('Skipping EdgeFilter')
++
++    case 'MAC'
++      fprintf(fid, '  type: "Pooling"\n');
++      % Check padding compatibility with caffe. See:
++      % http://www.vlfeat.org/matconvnet/matconvnet-manual.pdf
++      % for more details.
++      write_connection(fid, net.layers, idx);
++      fprintf(fid, '  pooling_param {\n');
++      fprintf(fid, '    pool: MAX\n');
++      % write_kernel(fid, net.layers{idx}.block.poolSize);
++      % write_stride(fid, net.layers{idx}.block.stride);
++      % write_pad(fid, pad);
++      fprintf(fid, '    global_pooling: true\n');
++      fprintf(fid, '  }\n');
++
+     otherwise
+       error('Unknown layer type: %s', net.layers{idx}.type);
+   end
+@@ -367,7 +384,7 @@ for idx = 1:numel(net.layers)
+         bias = net.layers{idx}.weights{2};
+         caffeNet.layers(scale_layer_name).params(2).set_data(bias); % set bias
+ 
+-    case {'dagnn.ReLU', 'dagnn.LRN', 'dagnn.Pooling' , 'dagnn.SoftMax', 'dagnn.Sum', 'dagnn.Concat', 'dagnn.DropOut' }
++    case {'dagnn.ReLU', 'dagnn.LRN', 'dagnn.Pooling' , 'dagnn.SoftMax', 'dagnn.Sum', 'dagnn.Concat', 'dagnn.DropOut', 'EdgeFilter', 'MAC' }
+       % No weights - nothing to do
+     otherwise
+       error('Unknown layer type %s', layer_type)

@@ -1,0 +1,6 @@
+[submodule "conversion/cnnimageretrieval"]
+	path = conversion/cnnimageretrieval
+	url = https://github.com/filipradenovic/cnnimageretrieval
+[submodule "conversion/dagnn_caffe_deploy"]
+	path = conversion/dagnn_caffe_deploy
+	url = https://github.com/ecoto/dagnn_caffe_deploy
