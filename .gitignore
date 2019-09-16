@@ -1,0 +1,5 @@
+*.npy
+*.txt
+models/*.prototxt
+models/*.caffemodel
+models/*.yml.gz
