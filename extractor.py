@@ -9,7 +9,7 @@ import argparse
 import tempfile
 import numpy as np
 
-import dask.array as da
+from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
 os.environ['GLOG_minloglevel'] = '2'
@@ -22,7 +22,7 @@ class EdgeMACExtractor:
         
         caffe.set_mode_gpu()
         cnn_model = 'models/retrievalSfM30k-edgemac-vgg.prototxt'
-        cnn_weihts = 'models/retrievalSfM30k-edgemac-vgg.caffemodel'
+        cnn_weights = 'models/retrievalSfM30k-edgemac-vgg.caffemodel'
         edge_model = 'models/structured_edge_detection_model_opencv.yml.gz'
 
         if self.device_id < 0:
@@ -116,7 +116,7 @@ class EdgeMACExtractor:
             features = self.extract_from_image(img, sketch=sketch, augment=augment)
             if features_db is None:
                 features_db = h5py.File(out, 'w')
-                features_dataset = features_db.create_dataset('edgemac', (n_images, 2048), dtype=features.dtype)
+                features_dataset = features_db.create_dataset('edgemac', (n_images, 512), dtype=features.dtype)
                 
             features_dataset[i] = features
             if i % 1000 == 0:
