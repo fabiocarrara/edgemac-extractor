@@ -7,6 +7,7 @@ import h5py
 import time
 import argparse
 import tempfile
+import itertools
 import numpy as np
 
 from sklearn.preprocessing import normalize
@@ -20,7 +21,6 @@ class EdgeMACExtractor:
     def __init__(self, device_id=0):
         self.device_id = device_id
         
-        caffe.set_mode_gpu()
         cnn_model = 'models/retrievalSfM30k-edgemac-vgg.prototxt'
         cnn_weights = 'models/retrievalSfM30k-edgemac-vgg.caffemodel'
         edge_model = 'models/structured_edge_detection_model_opencv.yml.gz'
@@ -61,18 +61,20 @@ class EdgeMACExtractor:
         y = normalize(y)
         return y.squeeze()
     
-    def extract_from_image(self, img, sketch=False, augment=False, debug=False):
-
+    def extract_from_image(self, img, mask=None, sketch=False, augment=False, invert=False, debug=False):
         x = img
+        m = np.ones_like(x) if mask is None else mask
         
         if sketch:
             if x.ndim > 2:
                 x = cv2.cvtColor(x, cv2.COLOR_BGR2GRAY)
-            
+
+            if invert:
+                x = 255 - x
+
             """ Sketch preprocessing ported from the MATLAB implementation:
                 https://github.com/filipradenovic/cnnimageretrieval
             """
-
             _, x = cv2.threshold(x, .8 * 255, 255, cv2.THRESH_BINARY)  # binarize
             x = np.pad(x, 30, 'constant', constant_values=(0,))  # pads sketch
             x = cv2.ximgproc.thinning(x)  # thinning
@@ -80,22 +82,23 @@ class EdgeMACExtractor:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
             x = cv2.dilate(x, kernel)  # dilate
             x = cv2.ximgproc.thinning(x)  # thinning
-            
+
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
             x = cv2.dilate(x, kernel)  # larger dilate
 
             x = x.astype(np.float32) / 255.
-            x = self.__extract_one(x)            
-            return x
+            y = self.__extract_one(x)
             
         else:
             s = 227.0 / max(x.shape)
             x = cv2.resize(x, None, fx=s, fy=s)
+            m = cv2.resize(m, None, fx=s, fy=s)
             features = []
             xs = self.augment(x) if augment else [x,]
-            for x in xs:
+            ms = self.augment(ms) if augment else [m,]
+            for x, m in zip(xs, ms):
                 x = x.astype(np.float32) / 255.
-                x = self.edge.detectEdges(x)
+                x = self.edge.detectEdges(x) * m
                 x = np.pad(x, 30, 'constant', constant_values=(0,))
                 x = self.filter_edges(x)
                 y = self.__extract_one(x)
@@ -103,16 +106,39 @@ class EdgeMACExtractor:
             
             y = np.vstack(features).sum(axis=0, keepdims=True)
             y = normalize(y)
-            return y
 
-    def extract_from_urls(self, urls, out, sketch=False, size=None, augment=False):
-        print('Extracting (sketch={}, size={}, augment={}): {}'.format(sketch, size if size else 'Orig.', augment, out))
+        return y
+
+    def _debug_edges(self, x, m, i, augment=False):
+        m = np.ones_like(x) if m is None else m
+        s = 227.0 / max(x.shape)
+        print(x.shape, m.shape)
+        x = cv2.resize(x, None, fx=s, fy=s)
+        m = cv2.resize(m, None, fx=s, fy=s)
+        xs = self.augment(x) if augment else [x,]
+        ms = self.augment(ms) if augment else [m,]
+        for j, (x, m) in enumerate(zip(xs, ms)):
+            x = x.astype(np.float32) / 255.
+            m = m.astype(np.float32) / 255.
+            x = self.edge.detectEdges(x)
+            cv2.imwrite('/debug/edge_{:05d}_{:02d}.png'.format(i, j), x * 255)
+            x = np.pad(x, 30, 'constant', constant_values=(0,))
+            m = np.pad(m, 30, 'constant', constant_values=(0,))
+            x = self.filter_edges(x)
+            cv2.imwrite('/debug/edge_{:05d}_{:02d}_filtered.png'.format(i, j), x * 255)
+            x *= m
+            cv2.imwrite('/debug/edge_{:05d}_{:02d}_masked.png'.format(i, j), x * 255)
+
+    def extract_from_urls(self, urls, out, sketch=False, size=None, augment=False, invert=False):
+        print('Extracting (sketch={}, size={}, augment={}, invert={}): {}'.format(sketch, size if size else 'Orig.', augment, invert, out))
         
         features_db = None
         n_images = len(urls)
         
         for i, url in enumerate(tqdm(urls)):
-            img = self.load_and_prepare_image(url, size)   
+            img = self.load_and_prepare_image(url, size)
+            # self._debug_edges(img, i, None, augment=augment); continue
+
             features = self.extract_from_image(img, sketch=sketch, augment=augment)
             if features_db is None:
                 features_db = h5py.File(out, 'w')
@@ -121,6 +147,34 @@ class EdgeMACExtractor:
             features_dataset[i] = features
             if i % 1000 == 0:
                 features_db.flush()
+                
+        features_db.flush()
+        return features_dataset
+
+    def extract_from_generator(self, images_n_masks, out, sketch=False, size=None, augment=False, invert=False):
+        print('Extracting (sketch={}, size={}, augment={}, invert={}): {}'.format(sketch, size if size else 'Orig.', augment, invert, out))
+        
+        features_db = None
+        chunk_size = 1000
+        
+        for i, image_n_mask in tqdm(enumerate(images_n_masks)):
+            if image_n_mask is None:
+                continue
+
+            image, mask = image_n_mask
+            # img = self.load_and_prepare_image(url, size)
+            # self._debug_edges(image, mask, i, augment=augment); continue
+
+            features = self.extract_from_image(image, sketch=sketch, augment=augment, mask=mask)
+
+            if features_db is None:
+                features_db = h5py.File(out, 'w')
+                features_dataset = features_db.create_dataset('edgemac', (chunk_size, 512), dtype=features.dtype, maxshape=(None, 512))
+                
+            features_dataset[i] = features
+            if (i+1) % chunk_size == 0:
+                features_db.flush()
+                features_db.resize((features_db.shape[0] + chunk_size, 512))
                 
         features_db.flush()
         return features_dataset
@@ -139,10 +193,11 @@ class EdgeMACExtractor:
         I = self.prepare_image(im, size)
         return I        
 
-    def extract_from_pil(self, pil_img, sketch=False, size=None, augment=False):
+    def extract_from_pil(self, pil_img, sketch=False, size=None, augment=False, invert=False):
         pil_img = pil_img.convert('RGB')
+        img = np.array(pil_img)[:, :, ::-1]  # RGB -> BGR
         img = self.prepare_image(img, size)
-        return self.extract_from_image(img, sketch=sketch, augment=augment)
+        return self.extract_from_image(img, sketch=sketch, augment=augment, invert=invert)
 
 
 if __name__ == '__main__':
