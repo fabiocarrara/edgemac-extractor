@@ -8,11 +8,11 @@ function download_models() {
 
   # Converted EdgeMAC CNN model
   EDGE_MAC_MODEL="retrievalSfM30k-edgemac-vgg.prototxt"
-  EDGE_MAC_MODEL_URL=".../retrievalSfM30k-edgemac-vgg.prototxt"
+  EDGE_MAC_MODEL_URL="http://pc-carrara.isti.cnr.it/edge-mac/models/retrievalSfM30k-edgemac-vgg.prototxt"
   if [ ! -f "${EDGE_MAC_MODEL}" ]; then wget ${EDGE_MAC_MODEL_URL} -o ${EDGE_MAC_MODEL}; fi
 
   EDGE_MAC_MODEL_WEIGHTS="retrievalSfM30k-edgemac-vgg.caffemodel"
-  EDGE_MAC_MODEL_WEIGHTS_URL="../retrievalSfM30k-edgemac-vgg.caffemodel"
+  EDGE_MAC_MODEL_WEIGHTS_URL="http://pc-carrara.isti.cnr.it/edge-mac/models/retrievalSfM30k-edgemac-vgg.caffemodel"
   if [ ! -f "${EDGE_MAC_MODEL_WEIGHTS}" ]; then wget ${EDGE_MAC_MODEL_WEIGHTS_URL} -o ${EDGE_MAC_MODEL_WEIGHTS}; fi
 }
 
