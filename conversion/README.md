@@ -11,7 +11,7 @@ Clone (recursively) and install the two repos referred in this folder:
  - dagnn_caffe_deploy
 
 Check the documentation of each repo for the exact versions of MatConvNet and Caffe to be used.
-The original MatConvNet models are downloaded by the *cnnimageretrieval* repo automatically, check their documentation for more information.
+The original MatConvNet models are downloaded by the [cnnimageretrieval](https://github.com/filipradenovic/cnnimageretrieval) repo automatically, check their documentation for more information.
 
 Apply the patch to dagnn_caffe_deploy to support special layer types used in the EdgeMAC MatConvNet model:
 ```sh
