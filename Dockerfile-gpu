@@ -1,4 +1,4 @@
-FROM bvlc/caffe:cpu
+FROM bvlc/caffe:gpu
 
 RUN pip install --no-cache-dir --upgrade scikit-image && \
     pip install --no-cache-dir \
@@ -17,4 +17,4 @@ ADD . /code
 RUN cd models && ./download_models.sh && cd ..
 
 ENTRYPOINT [ "python" ]
-CMD [ "service.py" ]
+CMD [ "service.py", "-g", "0" ]
