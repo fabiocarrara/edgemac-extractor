@@ -75,6 +75,7 @@ class EdgeMACExtractor:
             """ Sketch preprocessing ported from the MATLAB implementation:
                 https://github.com/filipradenovic/cnnimageretrieval
             """
+
             _, x = cv2.threshold(x, .8 * 255, 255, cv2.THRESH_BINARY)  # binarize
             x = np.pad(x, 30, 'constant', constant_values=(0,))  # pads sketch
             x = cv2.ximgproc.thinning(x)  # thinning
@@ -95,7 +96,7 @@ class EdgeMACExtractor:
             m = cv2.resize(m, None, fx=s, fy=s)
             features = []
             xs = self.augment(x) if augment else [x,]
-            ms = self.augment(ms) if augment else [m,]
+            ms = self.augment(m) if augment else [m,]
             for x, m in zip(xs, ms):
                 x = x.astype(np.float32) / 255.
                 x = self.edge.detectEdges(x) * m
@@ -174,7 +175,7 @@ class EdgeMACExtractor:
             features_dataset[i] = features
             if (i+1) % chunk_size == 0:
                 features_db.flush()
-                features_db.resize((features_db.shape[0] + chunk_size, 512))
+                features_dataset.resize((features_dataset.shape[0] + chunk_size, 512))
                 
         features_db.flush()
         return features_dataset
