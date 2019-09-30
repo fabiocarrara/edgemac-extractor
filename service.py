@@ -50,7 +50,6 @@ def extract_from_image():
     """ Extracts EdgeMAC features given an uploaded image. """
     try:
         image = Image.open(flask.request.files['image'].stream)
-        image.save('/debug/pil.png')
         augment = bool(flask.request.args.get('augment', False))
         invert = bool(flask.request.args.get('invert', False))
         sketch = bool(flask.request.args.get('sketch', False))
